@@ -394,17 +394,8 @@ Por fim basta acessar http://localhost:9001/products no navegador para visualiza
 <br/></br>
 <br/></br>
 # **Problemas**
-Infelizmente ao fazer este tutorial me deparei com um problema de autorização entre o mysql e a api index.js. Não consegui solucionar, mas segue o link com uma solução que funcionou para outros usuários.
+
 https://github.com/ayrtonteshima/docker-introducao/issues/1
-
-
-
-
-<br/></br>
-<br/></br>
-# **Conclusão**
-
-Apesar do problema, esse tutorial é basico para trabalhar com Docker e ter uma idéia de como ele trabalha e se relaciona com outro arquivos do sistema.
 
 
 
