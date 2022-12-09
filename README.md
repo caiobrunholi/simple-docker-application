@@ -188,9 +188,267 @@ Onde ```-v``` significa que vamos utilizar um volume e ```$(pwd)/api/db/data:/va
 
 Restore do script sql:
 ```
+docker exec -i mysql-container mysql -uroot -ppassword < api/db/script.sql
+```
+Isso vai gerar diversos arquivos na pasta ```api/db/data```, que será a estrutura do Banco de Dados.
+
+Caso o container seja parado, o banco de dados materá as informações.
+
+<br/><br/>
+## **Instalação da dependências do Node**
+Acesse a pasta ```simple-docker-application/api``` e execute:
+```
+npm init
+```
+```
+caiopanes@DET-34523:~/CAIO/Study/simple-docker-application/api$ npm init
+This utility will walk you through creating a package.json file.
+It only covers the most common items, and tries to guess sensible defaults.
+
+See `npm help init` for definitive documentation on these fields
+and exactly what they do.
+
+Use `npm install <pkg>` afterwards to install a package and
+save it as a dependency in the package.json file.
+
+Press ^C at any time to quit.
+package name: (api) docker-intro-api
+version: (1.0.0) 
+description: primeira api com docker
+entry point: (index.js) 
+test command: test
+git repository: 
+keywords: Docker
+author: Caio
+license: (ISC) 
+About to write to /home/caiopanes/CAIO/Study/simple-docker-application/api/package.json:
+
+{
+  "name": "docker-intro-api",
+  "version": "1.0.0",
+  "description": "primeira api com docker",
+  "main": "index.js",
+  "scripts": {
+    "test": "test"
+  },
+  "keywords": [
+    "Docker"
+  ],
+  "author": "Caio",
+  "license": "ISC"
+}
+
+
+Is this OK? (yes) yes
+npm notice 
+npm notice New major version of npm available! 8.19.2 -> 9.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v9.2.0
+npm notice Run npm install -g npm@9.2.0 to update!
+npm notice 
+```
+<br/></br>
+Instalar o ```nodemon``` para manter a aplicação node rodando e fazer reload sempre que houver atualizações dos arquivos javascript.
+```
+npm install --save-dev nodemon
+```
+E instalar o ```express``` para fazer a rota que vai retornar os produtos, e os drivers do mysql.
+```
+npm install --save express mysql
+```
+<br/></br>
+
+No arquivo ```package.json```:
 
 ```
+simple-docker-application
+|_api
+    |_db
+    |   |_Dockerfile
+    |   |_script.sql
+    |_node_modules
+    |   |_ ...
+    |_package-lock.json
+    |_package.jason
+```
+Criar um comando ```start``` que irá iniciar o ```nodemon```:
+```
+# package.json file:
+{
+  "name": "docker-intro-api",
+  "version": "1.0.0",
+  "description": "primeira api com docker",
+  "main": "index.js",
+  "scripts": {
+    "test": "test",
+    "start": "nodemon ./src/index"
+  },
+  "keywords": [
+    "Docker"
+  ],
+  "author": "Caio",
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^2.0.20"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mysql": "^2.18.1"
+  }
+}
+```
+
+<br/></br>
+## **API e Conexão com o Banco de Dados**
+Criar uma pasta ```src``` e dentro o arquivo ```index.js```:
+
+```
+simple-docker-application
+|_api
+    |_db
+    |   |_Dockerfile
+    |   |_script.sql
+    |_node_modules
+    |   |_ ...
+    |_package-lock.json
+    |_package.jason
+    |_src
+        |_index.js
+```
+E escreva:
+```
+const express = require('express');
+const mysql = require('mysql');
+
+const app = express();
+
+const connection = mysql.createConnection({
+  host: '172.17.0.2',
+  user: 'root',
+  password: 'password',
+  database: 'testedb'
+});
+
+connection.connect();
+
+app.get('/products', function(req, res) {
+  connection.query('SELECT * FROM products', function (error, results) {
+
+    if (error) { 
+      throw error
+    };
+
+    res.send(results.map(item => ({ name: item.name, price: item.price })));
+  });
+});
+
+
+app.listen(9001, '0.0.0.0', function() {
+  console.log('Listening on port 9001');
+})
+```
+Esse arquivo vai importar as bibliotecas, iniciar uma conexão com o banco de dados, seleciona os produtos e retorna o resultado. 
+
+Uma coisa importante é informar em ```host:``` informar o endereço IP do container, para isso basta executar o comando ```docker inspect mysql-container``` no terminal e procurar o ```"IPAddress":```.
+
+<br/></br>
+<br/></br>
+# **Criando a Imagem e o Container da Aplicação em si**
+Crie um novo Dockerfile.
+```
+simple-docker-application
+|_api
+    |_db
+    |   |_Dockerfile
+    |   |_script.sql
+    |_node_modules
+    |   |_ ...
+    |_package-lock.json
+    |_package.jason
+    |_src
+    |   |_index.js
+    |_Dockerfile
+```
+Nele instale a imagem da versão 10 do node slim, os arquivos do container vão ficar na pasta ```/home/node/app```, é o ```WORKDIR``` (work directory).
+
+Quando o container subir ele deverá executar o comando ```npm start```, então use o ```CMD``` para informar isso ao Dockerfile (verifique o final do arquivo para entender melhor este comando). Esse comando seŕa executado na pasta do ```WORKDIR```.
+```
+# Dockerfile
+FROM node:10-slim
+WORKDIR /home/node/app
+CMD npm start
+```
+Então é só criar a imagem como nos passos anteriores:
+```
+sudo docker build -t node-image -f api/Dockerfile .
+```
+E rodar a imagem dentro de um conatiner:
+```
+docker run -d -v $(pwd)/api:/home/node/app -p 9001:9001 --rm --name node-container node-image 
+```
+Onde ```-p 9001:9001``` informa que a porta 9001 do container poderá ser acessada na porta 9001 do host.
+
+<br/></br>
+## **Final**
+Por fim basta acessar http://localhost:9001/products no navegador para visualizar.
+
+<br/></br>
+<br/></br>
+# **Problemas**
+Infelizmente ao fazer este tutorial me deparei com um problema de autorização entre o mysql e a api index.js. Não consegui solucionar, mas segue o link com uma solução que funcionou para outros usuários.
+https://github.com/ayrtonteshima/docker-introducao/issues/1
 
 
 
-https://youtu.be/Kzcz-EVKBEQ?t=827
+
+<br/></br>
+<br/></br>
+# **Conclusão**
+
+Apesar do problema, esse tutorial é basico para trabalhar com Docker e ter uma idéia de como ele trabalha e se relaciona com outro arquivos do sistema.
+
+
+
+
+
+<br/></br>
+<br/></br>
+<br/></br>
+<br/></br>
+<br/></br>
+# **Informações Adicionais**
+## **CMD vs ENTRYPOINT**
+Resumidamente:
+
+```ENTRYPOINT``` é definido na criação do Dockerfile, pode ser uma função ```sleep``` por exemplo.
+
+```CMD``` é mais como um argumento, pode ser um argumento da função definida pelo ```ENTRYPOINT```, por exemplo ```10``` segundos.
+
+```
+docker run example 10
+``` 
+Somente ```CMD``` de 10 segundos.
+<br/></br>
+```
+docker run --entrypoint sleep2.0 example 10 
+```
+Muda da função do ```ENTRYPOINT``` para ```sleep2.0```, com um ```CMD``` de ```10``` segundos
+
+Este video possui uma boa explicação sobre o assunto: https://www.youtube.com/watch?v=OYbEWUbmk90
+
+<br/></br>
+<br/></br>
+<br/></br>
+<br/></br>
+
+```
+|-----------|
+| ENFIM,    |
+| É         |
+| ISSO.     ||
+|-----------|
+(\__/) ||
+(•ㅅ•) ||
+/ 　 づ
+
+CB
+```
